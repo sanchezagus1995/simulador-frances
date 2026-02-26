@@ -3,85 +3,77 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simulador (Notion → GitHub) — Tasa francesa + IVA</title>
+  <title>Simulador - Tasa francesa</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="card">
-    <header class="header">
-      <h1>Simulador — Tasa francesa (como en Notion)</h1>
-      <p class="muted">Entradas: <b>Monto</b>, <b>Plazo</b>, <b>TNA</b>. IVA fijo 21% sobre interés.</p>
-    </header>
+    <h1>Simulador - Tasa francesa</h1>
 
     <section class="inputs">
       <label>
         Monto ($)
-        <input id="monto" type="number" min="0" step="1000" value="1000000" />
+        <input id="monto" type="number" value="1000000" />
       </label>
 
       <label>
         Plazo (meses)
-        <input id="plazo" type="number" min="1" step="1" value="24" />
+        <input id="plazo" type="number" value="36" />
       </label>
 
       <label>
         TNA (% anual)
-        <input id="tna" type="number" min="0" step="0.01" value="120" />
+        <input id="tna" type="number" value="54" />
       </label>
     </section>
 
-    <div class="actions">
-      <button id="btn">Calcular</button>
-      <button id="btnEj">Ejemplo</button>
-    </div>
+    <button id="btn">Calcular</button>
 
-    <section class="grid">
-      <div class="box">
-        <h2>Tasas</h2>
-        <div class="row"><span>Tasa mensual (i)</span><b id="tasaMensual">—</b></div>
-        <div class="row"><span>TEA</span><b id="tea">—</b></div>
-        <div class="row"><span>CFTEA (con IVA)</span><b id="cftea">—</b></div>
+    <!-- CUOTAS PRINCIPALES -->
+    <section class="cuotas">
+      <div class="cuota-box">
+        <h2>Primer cuota</h2>
+        <div class="cuota-grande" id="cuota1">—</div>
+
+        <details>
+          <summary>Ver detalle</summary>
+          <div class="detalle">
+            <div>Interés: <span id="interes1"></span></div>
+            <div>IVA: <span id="iva1"></span></div>
+          </div>
+        </details>
       </div>
 
-      <div class="box">
-        <h2>Cuota base</h2>
-        <div class="row"><span>Cuota fija sin IVA</span><b id="cuotaSinIva">—</b></div>
-      </div>
+      <div class="cuota-box">
+        <h2>Última cuota</h2>
+        <div class="cuota-grande" id="cuotaUlt">—</div>
 
-      <div class="box">
-        <h2>Primer mes</h2>
-        <div class="row"><span>Interés 1er mes</span><b id="interes1">—</b></div>
-        <div class="row"><span>IVA 1er mes</span><b id="iva1">—</b></div>
-        <div class="row"><span>1er cuota</span><b id="cuota1">—</b></div>
-      </div>
-
-      <div class="box">
-        <h2>Último mes</h2>
-        <div class="row"><span>Saldo previo</span><b id="saldoPrevio">—</b></div>
-        <div class="row"><span>Interés última</span><b id="interesUlt">—</b></div>
-        <div class="row"><span>IVA última</span><b id="ivaUlt">—</b></div>
-        <div class="row"><span>Última cuota</span><b id="cuotaUlt">—</b></div>
+        <details>
+          <summary>Ver detalle</summary>
+          <div class="detalle">
+            <div>Saldo previo: <span id="saldoPrevio"></span></div>
+            <div>Interés: <span id="interesUlt"></span></div>
+            <div>IVA: <span id="ivaUlt"></span></div>
+          </div>
+        </details>
       </div>
     </section>
 
-    <details class="details">
-      <summary>Ver fórmulas (mapeo 1:1 con Notion)</summary>
-      <ul>
-        <li><b>tasa mensual</b>: i = TNA/100/12</li>
-        <li><b>cuota fija sin iva</b>: si i=0 → M/n, sino M * ( i / (1 - (1+i)^(-n)) )</li>
-        <li><b>interés 1er mes</b>: M * i</li>
-        <li><b>iva 1er mes</b>: interés_1 * 0.21</li>
-        <li><b>1er cuota</b>: cuota_sin_iva + iva_1</li>
-        <li><b>saldo previo</b>:
-          M * ( ((1+i)^n - (1+i)^(n-1)) / ((1+i)^n - 1) )
-        </li>
-        <li><b>interés última</b>: saldo_previo * i</li>
-        <li><b>iva última</b>: interés_última * 0.21</li>
-        <li><b>última cuota</b>: saldo_previo + interés_última + iva_última</li>
-        <li><b>TEA</b>: (1+i)^12 - 1</li>
-        <li><b>CFTEA</b>: (1 + i*(1+iva))^12 - 1</li>
-      </ul>
-    </details>
+    <!-- INFO SECUNDARIA -->
+    <section class="secundario">
+      <div class="box">
+        <h3>Tasas</h3>
+        <div>Tasa mensual: <span id="tasaMensual"></span></div>
+        <div>TEA: <span id="tea"></span></div>
+        <div>CFTEA: <span id="cftea"></span></div>
+      </div>
+
+      <div class="box">
+        <h3>Cuota base</h3>
+        <div>Cuota fija sin IVA: <span id="cuotaSinIva"></span></div>
+      </div>
+    </section>
+
   </main>
 
   <script src="app.js"></script>
