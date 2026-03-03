@@ -103,3 +103,27 @@ button:hover {
     flex-direction: column;
   }
 }
+.bcra-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.bcra-table th, .bcra-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+}
+
+.bcra-table thead th {
+  background: #f3f5ff;
+  text-align: left;
+  font-weight: 700;
+}
+
+.bcra-table tbody tr:hover {
+  background: #fafbff;
+}
