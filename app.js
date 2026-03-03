@@ -342,7 +342,13 @@ async function onClickConsultarBcra() {
 
   const id = cleanDigits(cuitRaw);
 
-  bcraClearUI();
+  function bcraClearUI() {
+  bcraSetStatus("");
+  setText("bcraSummary", "—");
+  setText("bcraDetails", "");
+  const wrap = document.getElementById("bcraTableWrap");
+  if (wrap) wrap.innerHTML = "";
+}
 
   if (!consent) {
     bcraSetStatus("Marcá el consentimiento para consultar (dato sensible).");
