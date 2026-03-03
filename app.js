@@ -8,6 +8,77 @@ const BCRA_TIMEOUT_MS = 12000;
 // =====================
 // Helpers
 // =====================
+function fmtDateAR(iso) {
+  if (!iso) return "—";
+  // iso tipo "2021-03-30"
+  const [y, m, d] = String(iso).split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
+function situacionLabel(n) {
+  // etiqueta simple (podés ajustar)
+  const map = {
+    1: "Normal",
+    2: "Riesgo bajo",
+    3: "Riesgo medio",
+    4: "Riesgo alto",
+    5: "Irrecuperable",
+    6: "Irrecuperable (disp. técnica)",
+  };
+  return map[n] ?? String(n ?? "—");
+}
+
+function renderBcraTable(entidades = []) {
+  if (!entidades.length) return `<div class="muted">Sin entidades informadas en el período.</div>`;
+
+  const rows = entidades.map(e => {
+    const entidad = e.entidad ?? "—";
+    const sit = Number(e.situacion);
+    const fecha = fmtDateAR(e.fechaSit1);
+    const monto = fmtARS(Number(e.monto) || 0);
+    const atraso = (e.diasAtrasoPago ?? 0);
+
+    // flags relevantes (solo las que están true)
+    const flags = [];
+    if (e.refinanciaciones) flags.push("Refinanciación");
+    if (e.recategorizacionOblig) flags.push("Recateg. oblig.");
+    if (e.irrecDisposicionTecnica) flags.push("Irrec. disp. técnica");
+    if (e.procesoJud) flags.push("Proceso judicial");
+    if (e.enRevision) flags.push("En revisión");
+    const flagsTxt = flags.length ? flags.join(", ") : "—";
+
+    return `
+      <tr>
+        <td>${entidad}</td>
+        <td>${situacionLabel(sit)}</td>
+        <td>${fecha}</td>
+        <td style="text-align:right;">${monto}</td>
+        <td style="text-align:right;">${atraso}</td>
+        <td>${flagsTxt}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <table class="bcra-table">
+      <thead>
+        <tr>
+          <th>Entidad</th>
+          <th>Situación</th>
+          <th>Fecha</th>
+          <th style="text-align:right;">Monto</th>
+          <th style="text-align:right;">Días atraso</th>
+          <th>Alertas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
 function fmtARS(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
