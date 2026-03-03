@@ -59,6 +59,32 @@
       </div>
     </section>
 
+    <section class="box">
+  <h3>Central de Deudores (BCRA)</h3>
+
+  <label>
+    CUIT/CUIL (11 dígitos)
+    <input id="cuit" type="text" placeholder="20300111222" />
+  </label>
+
+  <label style="margin-top:8px; display:block;">
+    <input id="bcraConsent" type="checkbox" />
+    Tengo autorización del titular para consultar
+  </label>
+
+  <button id="btnBcra" style="margin-top:10px;">Consultar BCRA</button>
+
+  <div style="margin-top:10px;">
+    <div><b>Estado:</b> <span id="bcraStatus"></span></div>
+    <div style="margin-top:6px;"><b>Resumen:</b> <span id="bcraSummary">—</span></div>
+
+    <details style="margin-top:10px;">
+      <summary>Ver JSON completo</summary>
+      <pre id="bcraDetails" style="white-space:pre-wrap;"></pre>
+    </details>
+  </div>
+</section>
+    
     <!-- INFO SECUNDARIA -->
     <section class="secundario">
       <div class="box">
