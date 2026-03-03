@@ -1,12 +1,19 @@
+// =====================
+// Config
+// =====================
 const IVA = 0.21;
+const BCRA_BASE = "https://api.bcra.gob.ar/centraldedeudores/v1.0";
+const BCRA_TIMEOUT_MS = 12000;
 
-// ====== helpers ======
+// =====================
+// Helpers
+// =====================
 function fmtARS(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -14,7 +21,7 @@ function fmtPct(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
     style: "percent",
-    maximumFractionDigits: 4
+    maximumFractionDigits: 4,
   }).format(n);
 }
 
@@ -22,7 +29,30 @@ function pow(a, b) {
   return Math.pow(a, b);
 }
 
-// ====== Notion formulas (1:1) ======
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function cleanDigits(s) {
+  return String(s || "").replace(/\D/g, "");
+}
+
+function assertIdsExist(ids) {
+  // no rompe nada; solo ayuda a debug en consola
+  const missing = ids.filter((id) => !document.getElementById(id));
+  if (missing.length) {
+    console.warn("Faltan elementos en el HTML:", missing);
+  }
+}
+
+// =====================
+// Notion formulas (1:1)
+// =====================
 function tasaMensualFromTNA(tnaPct) {
   // tasa mensual = TNA / 100 / 12
   return (tnaPct / 100) / 12;
@@ -70,25 +100,38 @@ function cftea(i) {
   return pow(1 + i * (1 + IVA), 12) - 1;
 }
 
-// ====== UI ======
+// =====================
+// Cálculo principal
+// =====================
 function readInputs() {
-  const M = Number(document.getElementById("monto").value || 0);
-  const n = Number(document.getElementById("plazo").value || 0);
-  const tna = Number(document.getElementById("tna").value || 0);
+  const M = Number(getEl("monto")?.value || 0);
+  const n = Number(getEl("plazo")?.value || 0);
+  const tna = Number(getEl("tna")?.value || 0);
   return { M, n, tna };
 }
 
-function setText(id, value) {
-  document.getElementById(id).textContent = value;
+function clearCalcUI() {
+  [
+    "tasaMensual",
+    "tea",
+    "cftea",
+    "cuotaSinIva",
+    "interes1",
+    "iva1",
+    "cuota1",
+    "saldoPrevio",
+    "interesUlt",
+    "ivaUlt",
+    "cuotaUlt",
+  ].forEach((id) => setText(id, "—"));
 }
 
 function calcular() {
   const { M, n, tna } = readInputs();
+
   if (!(M > 0) || !(n > 0) || tna < 0) {
-    // limpia si está mal
-    ["tasaMensual","tea","cftea","cuotaSinIva","interes1","iva1","cuota1","saldoPrevio","interesUlt","ivaUlt","cuotaUlt"]
-      .forEach(id => setText(id, "—"));
-    return;
+    clearCalcUI();
+    return null;
   }
 
   const i = tasaMensualFromTNA(tna);
@@ -118,16 +161,188 @@ function calcular() {
   setText("interesUlt", fmtARS(interesUlt));
   setText("ivaUlt", fmtARS(ivaUlt));
   setText("cuotaUlt", fmtARS(cuotaUlt));
+
+  return {
+    M,
+    n,
+    tna,
+    i,
+    cuotaSinIva,
+    interes1,
+    iva1,
+    cuota1,
+    saldoPrev,
+    interesUlt,
+    ivaUlt,
+    cuotaUlt,
+  };
 }
 
-document.getElementById("btn").addEventListener("click", calcular);
+// =====================
+// BCRA - Central de Deudores
+// =====================
+let bcraAbort = null;
 
-document.getElementById("btnEj").addEventListener("click", () => {
-  document.getElementById("monto").value = 1000000;
-  document.getElementById("plazo").value = 24;
-  document.getElementById("tna").value = 120;
+function bcraSetStatus(msg) {
+  setText("bcraStatus", msg);
+}
+
+function bcraClearUI() {
+  bcraSetStatus("");
+  setText("bcraSummary", "—");
+  setText("bcraDetails", "");
+}
+
+function bcraPrettyJson(obj) {
+  try {
+    return JSON.stringify(obj, null, 2);
+  } catch {
+    return "";
+  }
+}
+
+function bcraSummarize(apiJson) {
+  // La API devuelve { status, results: { identificacion, denominacion, periodos: [...] } }
+  const r = apiJson?.results;
+  const periodo = r?.periodos?.[0]; // suele ser el último
+  const entidades = periodo?.entidades || [];
+
+  const montoTotal = entidades.reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
+  const peorSituacion = entidades.reduce((m, e) => Math.max(m, Number(e.situacion) || 0), 0);
+
+  return {
+    denominacion: r?.denominacion ?? "",
+    identificacion: r?.identificacion ?? "",
+    periodo: periodo?.periodo ?? "",
+    entidadesCount: entidades.length,
+    montoTotal,
+    peorSituacion,
+  };
+}
+
+async function fetchWithTimeout(url, opts = {}) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), BCRA_TIMEOUT_MS);
+  try {
+    const resp = await fetch(url, { ...opts, signal: controller.signal });
+    return resp;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function consultarBcraDeudas(identificacion11) {
+  const url = `${BCRA_BASE}/Deudas/${identificacion11}`;
+
+  // cache corto de sesión (opcional)
+  const cacheKey = `bcra_deudas_${identificacion11}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // ignora cache roto
+      sessionStorage.removeItem(cacheKey);
+    }
+  }
+
+  // abort anterior si existía
+  if (bcraAbort) bcraAbort.abort();
+  bcraAbort = new AbortController();
+
+  // Nota: si CORS bloquea, esto va a tirar TypeError (failed to fetch)
+  const resp = await fetch(url, {
+    method: "GET",
+    signal: bcraAbort.signal,
+  });
+
+  if (!resp.ok) {
+    throw new Error(`BCRA respondió ${resp.status}`);
+  }
+
+  const json = await resp.json();
+  sessionStorage.setItem(cacheKey, JSON.stringify(json));
+  return json;
+}
+
+async function onClickConsultarBcra() {
+  const cuitRaw = getEl("cuit")?.value ?? "";
+  const consent = Boolean(getEl("bcraConsent")?.checked);
+
+  const id = cleanDigits(cuitRaw);
+
+  bcraClearUI();
+
+  if (!consent) {
+    bcraSetStatus("Marcá el consentimiento para consultar (dato sensible).");
+    return;
+  }
+
+  if (id.length !== 11) {
+    bcraSetStatus("Ingresá un CUIT/CUIL/CDI válido de 11 dígitos.");
+    return;
+  }
+
+  bcraSetStatus("Consultando BCRA…");
+
+  try {
+    const json = await consultarBcraDeudas(id);
+    const s = bcraSummarize(json);
+
+    const summaryLines = [
+      s.denominacion ? `Denominación: ${s.denominacion}` : null,
+      s.periodo ? `Período: ${s.periodo}` : null,
+      `Entidades informantes: ${s.entidadesCount}`,
+      `Monto total informado: ${fmtARS(s.montoTotal)}`,
+      `Peor situación (máx): ${Number.isFinite(s.peorSituacion) ? s.peorSituacion : "—"}`,
+    ].filter(Boolean);
+
+    setText("bcraSummary", summaryLines.join(" • "));
+    setText("bcraDetails", bcraPrettyJson(json));
+    bcraSetStatus("OK");
+  } catch (err) {
+    // Errores típicos:
+    // - CORS / network: TypeError: Failed to fetch
+    // - Abort: DOMException
+    const msg = String(err?.message || err);
+
+    if (msg.toLowerCase().includes("failed to fetch")) {
+      bcraSetStatus(
+        "No se pudo consultar desde el navegador (probable CORS). Solución: usar un proxy (Cloudflare Worker / Vercel) para llamar a BCRA."
+      );
+    } else if (msg.toLowerCase().includes("abort")) {
+      bcraSetStatus("Consulta cancelada.");
+    } else {
+      bcraSetStatus(`Error: ${msg}`);
+    }
+  }
+}
+
+// =====================
+// Wire-up
+// =====================
+function init() {
+  assertIdsExist([
+    "monto","plazo","tna","btn",
+    "tasaMensual","tea","cftea","cuotaSinIva","interes1","iva1","cuota1",
+    "saldoPrevio","interesUlt","ivaUlt","cuotaUlt",
+    // BCRA
+    "cuit","bcraConsent","btnBcra","bcraStatus","bcraSummary","bcraDetails"
+  ]);
+
+  getEl("btn")?.addEventListener("click", () => calcular());
+
+  // opcional: recalcular al tipear
+  ["monto", "plazo", "tna"].forEach((id) => {
+    getEl(id)?.addEventListener("input", () => calcular());
+  });
+
+  // BCRA
+  getEl("btnBcra")?.addEventListener("click", onClickConsultarBcra);
+
+  // init
   calcular();
-});
+  bcraClearUI();
+}
 
-// calcula al cargar
-calcular();
+document.addEventListener("DOMContentLoaded", init);
