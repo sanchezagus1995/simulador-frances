@@ -3,82 +3,10 @@
 // =====================
 const IVA = 0.21;
 const BCRA_BASE = "https://api.bcra.gob.ar/centraldedeudores/v1.0";
-const BCRA_TIMEOUT_MS = 12000;
 
 // =====================
-// Helpers
+// Helpers (format + utils)
 // =====================
-function fmtDateAR(iso) {
-  if (!iso) return "—";
-  // iso tipo "2021-03-30"
-  const [y, m, d] = String(iso).split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
-}
-
-function situacionLabel(n) {
-  // etiqueta simple (podés ajustar)
-  const map = {
-    1: "Normal",
-    2: "Riesgo bajo",
-    3: "Riesgo medio",
-    4: "Riesgo alto",
-    5: "Irrecuperable",
-    6: "Irrecuperable (disp. técnica)",
-  };
-  return map[n] ?? String(n ?? "—");
-}
-
-function renderBcraTable(entidades = []) {
-  if (!entidades.length) return `<div class="muted">Sin entidades informadas en el período.</div>`;
-
-  const rows = entidades.map(e => {
-    const entidad = e.entidad ?? "—";
-    const sit = Number(e.situacion);
-    const fecha = fmtDateAR(e.fechaSit1);
-    const monto = fmtARS(Number(e.monto) || 0);
-    const atraso = (e.diasAtrasoPago ?? 0);
-
-    // flags relevantes (solo las que están true)
-    const flags = [];
-    if (e.refinanciaciones) flags.push("Refinanciación");
-    if (e.recategorizacionOblig) flags.push("Recateg. oblig.");
-    if (e.irrecDisposicionTecnica) flags.push("Irrec. disp. técnica");
-    if (e.procesoJud) flags.push("Proceso judicial");
-    if (e.enRevision) flags.push("En revisión");
-    const flagsTxt = flags.length ? flags.join(", ") : "—";
-
-    return `
-      <tr>
-        <td>${entidad}</td>
-        <td>${situacionLabel(sit)}</td>
-        <td>${fecha}</td>
-        <td style="text-align:right;">${monto}</td>
-        <td style="text-align:right;">${atraso}</td>
-        <td>${flagsTxt}</td>
-      </tr>
-    `;
-  }).join("");
-
-  return `
-    <table class="bcra-table">
-      <thead>
-        <tr>
-          <th>Entidad</th>
-          <th>Situación</th>
-          <th>Fecha</th>
-          <th style="text-align:right;">Monto</th>
-          <th style="text-align:right;">Días atraso</th>
-          <th>Alertas</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  `;
-}
-
 function fmtARS(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
@@ -94,6 +22,25 @@ function fmtPct(n) {
     style: "percent",
     maximumFractionDigits: 4,
   }).format(n);
+}
+
+function fmtDateAR(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
+function situacionLabel(n) {
+  const map = {
+    1: "Normal",
+    2: "Riesgo bajo",
+    3: "Riesgo medio",
+    4: "Riesgo alto",
+    5: "Irrecuperable",
+    6: "Irrecuperable (disp. técnica)",
+  };
+  return map[n] ?? String(n ?? "—");
 }
 
 function pow(a, b) {
@@ -114,23 +61,74 @@ function cleanDigits(s) {
 }
 
 function assertIdsExist(ids) {
-  // no rompe nada; solo ayuda a debug en consola
   const missing = ids.filter((id) => !document.getElementById(id));
-  if (missing.length) {
-    console.warn("Faltan elementos en el HTML:", missing);
+  if (missing.length) console.warn("Faltan elementos en el HTML:", missing);
+}
+
+// =====================
+// Render BCRA table
+// =====================
+function renderBcraTable(entidades = []) {
+  if (!entidades.length) {
+    return `<div class="muted">Sin entidades informadas en el período.</div>`;
   }
+
+  const rows = entidades
+    .map((e) => {
+      const entidad = e.entidad ?? "—";
+      const sitNum = Number(e.situacion);
+      const fecha = fmtDateAR(e.fechaSit1);
+      const monto = fmtARS(Number(e.monto) || 0);
+      const atraso = e.diasAtrasoPago ?? 0;
+
+      const flags = [];
+      if (e.refinanciaciones) flags.push("Refinanciación");
+      if (e.recategorizacionOblig) flags.push("Recateg. oblig.");
+      if (e.irrecDisposicionTecnica) flags.push("Irrec. disp. técnica");
+      if (e.procesoJud) flags.push("Proceso judicial");
+      if (e.enRevision) flags.push("En revisión");
+      const flagsTxt = flags.length ? flags.join(", ") : "—";
+
+      return `
+        <tr>
+          <td>${entidad}</td>
+          <td>${situacionLabel(sitNum)}</td>
+          <td>${fecha}</td>
+          <td style="text-align:right;">${monto}</td>
+          <td style="text-align:right;">${atraso}</td>
+          <td>${flagsTxt}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `
+    <table class="bcra-table">
+      <thead>
+        <tr>
+          <th>Entidad</th>
+          <th>Situación</th>
+          <th>Fecha</th>
+          <th style="text-align:right;">Monto</th>
+          <th style="text-align:right;">Días atraso</th>
+          <th>Alertas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
 }
 
 // =====================
 // Notion formulas (1:1)
 // =====================
 function tasaMensualFromTNA(tnaPct) {
-  // tasa mensual = TNA / 100 / 12
   return (tnaPct / 100) / 12;
 }
 
 function cuotaFijaSinIVA(M, n, i) {
-  // if(i == 0, M/n, M * ( i / ( 1 - pow(1 + i, -n) ) ))
   if (i === 0) return M / n;
   return M * (i / (1 - pow(1 + i, -n)));
 }
@@ -144,7 +142,6 @@ function ivaPrimerMes(interes1) {
 }
 
 function saldoPrevio(M, i, n) {
-  // M * ( ((1+i)^n - (1+i)^(n-1)) / ((1+i)^n - 1) )
   const aN = pow(1 + i, n);
   const aN_1 = pow(1 + i, n - 1);
   const num = aN - aN_1;
@@ -162,12 +159,10 @@ function ivaUltima(interesUlt) {
 }
 
 function tea(i) {
-  // (1+i)^12 - 1
   return pow(1 + i, 12) - 1;
 }
 
 function cftea(i) {
-  // (1 + i*(1+iva))^12 - 1
   return pow(1 + i * (1 + IVA), 12) - 1;
 }
 
@@ -262,6 +257,8 @@ function bcraClearUI() {
   bcraSetStatus("");
   setText("bcraSummary", "—");
   setText("bcraDetails", "");
+  const wrap = document.getElementById("bcraTableWrap");
+  if (wrap) wrap.innerHTML = "";
 }
 
 function bcraPrettyJson(obj) {
@@ -273,9 +270,8 @@ function bcraPrettyJson(obj) {
 }
 
 function bcraSummarize(apiJson) {
-  // La API devuelve { status, results: { identificacion, denominacion, periodos: [...] } }
   const r = apiJson?.results;
-  const periodo = r?.periodos?.[0]; // suele ser el último
+  const periodo = r?.periodos?.[0];
   const entidades = periodo?.entidades || [];
 
   const montoTotal = entidades.reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
@@ -291,45 +287,27 @@ function bcraSummarize(apiJson) {
   };
 }
 
-async function fetchWithTimeout(url, opts = {}) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), BCRA_TIMEOUT_MS);
-  try {
-    const resp = await fetch(url, { ...opts, signal: controller.signal });
-    return resp;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
 async function consultarBcraDeudas(identificacion11) {
   const url = `${BCRA_BASE}/Deudas/${identificacion11}`;
 
-  // cache corto de sesión (opcional)
+  // cache de sesión (opcional)
   const cacheKey = `bcra_deudas_${identificacion11}`;
   const cached = sessionStorage.getItem(cacheKey);
   if (cached) {
     try {
       return JSON.parse(cached);
     } catch {
-      // ignora cache roto
       sessionStorage.removeItem(cacheKey);
     }
   }
 
-  // abort anterior si existía
+  // abort anterior
   if (bcraAbort) bcraAbort.abort();
   bcraAbort = new AbortController();
 
-  // Nota: si CORS bloquea, esto va a tirar TypeError (failed to fetch)
-  const resp = await fetch(url, {
-    method: "GET",
-    signal: bcraAbort.signal,
-  });
+  const resp = await fetch(url, { method: "GET", signal: bcraAbort.signal });
 
-  if (!resp.ok) {
-    throw new Error(`BCRA respondió ${resp.status}`);
-  }
+  if (!resp.ok) throw new Error(`BCRA respondió ${resp.status}`);
 
   const json = await resp.json();
   sessionStorage.setItem(cacheKey, JSON.stringify(json));
@@ -339,19 +317,9 @@ async function consultarBcraDeudas(identificacion11) {
 async function onClickConsultarBcra() {
   const cuitRaw = getEl("cuit")?.value ?? "";
   const consent = Boolean(getEl("bcraConsent")?.checked);
-  const periodo = json?.results?.periodos?.[0];
-const entidades = periodo?.entidades || [];
-const wrap = document.getElementById("bcraTableWrap");
-if (wrap) wrap.innerHTML = renderBcraTable(entidades);
   const id = cleanDigits(cuitRaw);
 
-  function bcraClearUI() {
-  bcraSetStatus("");
-  setText("bcraSummary", "—");
-  setText("bcraDetails", "");
-  const wrap = document.getElementById("bcraTableWrap");
-  if (wrap) wrap.innerHTML = "";
-}
+  bcraClearUI();
 
   if (!consent) {
     bcraSetStatus("Marcá el consentimiento para consultar (dato sensible).");
@@ -379,17 +347,18 @@ if (wrap) wrap.innerHTML = renderBcraTable(entidades);
 
     setText("bcraSummary", summaryLines.join(" • "));
     setText("bcraDetails", bcraPrettyJson(json));
+
+    const periodo = json?.results?.periodos?.[0];
+    const entidades = periodo?.entidades || [];
+    const wrap = document.getElementById("bcraTableWrap");
+    if (wrap) wrap.innerHTML = renderBcraTable(entidades);
+
     bcraSetStatus("OK");
   } catch (err) {
-    // Errores típicos:
-    // - CORS / network: TypeError: Failed to fetch
-    // - Abort: DOMException
     const msg = String(err?.message || err);
 
     if (msg.toLowerCase().includes("failed to fetch")) {
-      bcraSetStatus(
-        "No se pudo consultar desde el navegador (probable CORS). Solución: usar un proxy (Cloudflare Worker / Vercel) para llamar a BCRA."
-      );
+      bcraSetStatus("No se pudo consultar desde el navegador (probable CORS).");
     } else if (msg.toLowerCase().includes("abort")) {
       bcraSetStatus("Consulta cancelada.");
     } else {
@@ -403,24 +372,20 @@ if (wrap) wrap.innerHTML = renderBcraTable(entidades);
 // =====================
 function init() {
   assertIdsExist([
-    "monto","plazo","tna","btn",
-    "tasaMensual","tea","cftea","cuotaSinIva","interes1","iva1","cuota1",
-    "saldoPrevio","interesUlt","ivaUlt","cuotaUlt",
-    // BCRA
-    "cuit","bcraConsent","btnBcra","bcraStatus","bcraSummary","bcraDetails"
+    "monto", "plazo", "tna", "btn",
+    "tasaMensual", "tea", "cftea", "cuotaSinIva", "interes1", "iva1", "cuota1",
+    "saldoPrevio", "interesUlt", "ivaUlt", "cuotaUlt",
+    "cuit", "bcraConsent", "btnBcra", "bcraStatus", "bcraSummary", "bcraDetails", "bcraTableWrap",
   ]);
 
   getEl("btn")?.addEventListener("click", () => calcular());
 
-  // opcional: recalcular al tipear
   ["monto", "plazo", "tna"].forEach((id) => {
     getEl(id)?.addEventListener("input", () => calcular());
   });
 
-  // BCRA
   getEl("btnBcra")?.addEventListener("click", onClickConsultarBcra);
 
-  // init
   calcular();
   bcraClearUI();
 }
