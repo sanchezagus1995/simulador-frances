@@ -339,7 +339,10 @@ async function consultarBcraDeudas(identificacion11) {
 async function onClickConsultarBcra() {
   const cuitRaw = getEl("cuit")?.value ?? "";
   const consent = Boolean(getEl("bcraConsent")?.checked);
-
+  const periodo = json?.results?.periodos?.[0];
+const entidades = periodo?.entidades || [];
+const wrap = document.getElementById("bcraTableWrap");
+if (wrap) wrap.innerHTML = renderBcraTable(entidades);
   const id = cleanDigits(cuitRaw);
 
   function bcraClearUI() {
