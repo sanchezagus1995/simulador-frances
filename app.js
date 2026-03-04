@@ -394,6 +394,7 @@ async function onClickConsultarBcra() {
 // Wire-up
 // =====================
 function init() {
+
   assertIdsExist([
     "monto", "plazo", "tna", "btn",
     "tasaMensual", "tea", "cftea", "cuotaSinIva", "interes1", "iva1", "cuota1",
@@ -401,16 +402,15 @@ function init() {
     "cuit", "bcraConsent", "btnBcra", "bcraStatus", "bcraSummary", "bcraDetails", "bcraTableWrap",
   ]);
 
+  // botón calcular
   getEl("btn")?.addEventListener("click", () => calcular());
 
-  ["monto", "plazo", "tna"].forEach((id) => {
-    getEl(id)?.addEventListener("input", () => calcular());
-  });
-
+  // botón BCRA
   getEl("btnBcra")?.addEventListener("click", onClickConsultarBcra);
 
-  calcular();
+  // inicialización
   bcraClearUI();
+
 }
 
 document.addEventListener("DOMContentLoaded", init);
