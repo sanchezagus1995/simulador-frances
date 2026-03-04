@@ -15,7 +15,23 @@ function fmtARS(n) {
     maximumFractionDigits: 2,
   }).format(n);
 }
+async function logSimulacion(data) {
 
+  try {
+
+    await fetch("https://y-loki-api.sanchezagus-1995.workers.dev/log", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    })
+
+  } catch (err) {
+    console.error("Error enviando log:", err)
+  }
+
+}
 function fmtPct(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
@@ -227,7 +243,14 @@ function calcular() {
   setText("interesUlt", fmtARS(interesUlt));
   setText("ivaUlt", fmtARS(ivaUlt));
   setText("cuotaUlt", fmtARS(cuotaUlt));
-
+logSimulacion({
+  monto: M,
+  plazo: n,
+  tna: tna,
+  cuota1: cuota1,
+  cuotaUlt: cuotaUlt,
+  timestamp: new Date().toISOString()
+});
   return {
     M,
     n,
