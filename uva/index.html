@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Simulador UVA</title>
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="../shared/bcra.css" />
 </head>
 <body>
   <main class="wrap">
@@ -43,7 +44,7 @@
 
       <div id="status" class="status muted"></div>
     </section>
-
+    <div id="bcra-container"></div>
     <section class="card">
       <h2>Resultado</h2>
 
@@ -97,6 +98,14 @@
     </footer>
   </main>
 
-  <script src="./simulator.js"></script>
+<script src="../shared/bcra.js"></script>
+<script src="./simulator.js"></script>
+
+<script>
+renderBcraBlock("bcra-container", {
+  instanceId: "bcra-uva"
+});
+</script>
+
 </body>
 </html>
