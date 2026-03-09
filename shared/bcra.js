@@ -14,6 +14,13 @@
     }).format(n);
   }
 
+  function fmtDateAR(iso) {
+    if (!iso) return "—";
+    const [y, m, d] = String(iso).split("-");
+    if (!y || !m || !d) return iso;
+    return `${d}/${m}/${y}`;
+  }
+
   function situacionLabel(n) {
     const map = {
       1: "Normal",
@@ -40,6 +47,62 @@
     if (s <= 1) return "Apto";
     if (s === 2) return "Revisar";
     return "Riesgo";
+  }
+
+  function renderBcraTable(entidades = []) {
+    if (!entidades.length) {
+      return `<div class="muted">Sin entidades informadas en el período.</div>`;
+    }
+
+    const rows = entidades
+      .map((e) => {
+        const entidad = e.entidad ?? "—";
+        const sitNum = Number(e.situacion);
+        const fecha = fmtDateAR(e.fechaSit1);
+        const monto = fmtARS(Number(e.monto) || 0);
+        const atraso = e.diasAtrasoPago ?? 0;
+
+        const flags = [];
+        if (e.refinanciaciones) flags.push("Refinanciación");
+        if (e.recategorizacionOblig) flags.push("Recateg. oblig.");
+        if (e.irrecDisposicionTecnica) flags.push("Irrec. disp. técnica");
+        if (e.procesoJud) flags.push("Proceso judicial");
+        if (e.enRevision) flags.push("En revisión");
+
+        const flagsTxt = flags.length ? flags.join(", ") : "—";
+
+        return `
+          <tr>
+            <td>${entidad}</td>
+            <td>${situacionLabel(sitNum)}</td>
+            <td>${fecha}</td>
+            <td style="text-align:right;">${monto}</td>
+            <td style="text-align:right;">${atraso}</td>
+            <td>${flagsTxt}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    return `
+      <div class="bcra-table-wrap">
+        <table class="bcra-table">
+          <thead>
+            <tr>
+              <th>Entidad</th>
+              <th>Situación</th>
+              <th>Fecha</th>
+              <th style="text-align:right;">Monto</th>
+              <th style="text-align:right;">Días atraso</th>
+              <th>Alertas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   function buildMarkup(instanceId) {
@@ -74,6 +137,7 @@
         <div id="${instanceId}-result" class="bcra-result" style="display:none;">
           <div id="${instanceId}-badge" class="bcra-badge warn">Sin dato</div>
           <div id="${instanceId}-meta" class="bcra-meta"></div>
+          <div id="${instanceId}-table" class="bcra-table-box"></div>
         </div>
       </section>
     `;
@@ -142,6 +206,7 @@
     const result = document.getElementById(`${instanceId}-result`);
     const badge = document.getElementById(`${instanceId}-badge`);
     const meta = document.getElementById(`${instanceId}-meta`);
+    const table = document.getElementById(`${instanceId}-table`);
 
     let lastText = "";
 
@@ -180,6 +245,8 @@
           <div><strong>Entidades informantes:</strong> ${summary.entidadesCount}</div>
           <div><strong>Monto total informado:</strong> ${fmtARS(summary.montoTotal)}</div>
         `;
+
+        table.innerHTML = renderBcraTable(summary.entidades);
 
         lastText = buildCopyText(value, summary, badgeText);
 
