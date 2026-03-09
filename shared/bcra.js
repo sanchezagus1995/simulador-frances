@@ -61,7 +61,7 @@
   }
 
   async function defaultFetcher({ cuil, docType }) {
-    const url = `https://y-loki-api.sanchezagus-1995.workers.dev/api/bcra?value=${encodeURIComponent(cuil)}&type=${encodeURIComponent(docType)}`;
+    const url = `https://api.bcra.gob.ar/centraldedeudores/v1.0`;
     const res = await fetch(url, {
       method: "GET",
       headers: { "Accept": "application/json" }
