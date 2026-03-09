@@ -1,18 +1,45 @@
 (function () {
-  function getBadgeClass(situacion) {
-    const s = Number(situacion);
+  const BCRA_BASE = "https://api.bcra.gob.ar/centraldedeudores/v1.0";
+
+  function cleanDigits(s) {
+    return String(s || "").replace(/\D/g, "");
+  }
+
+  function fmtARS(n) {
+    if (!Number.isFinite(n)) return "—";
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 2,
+    }).format(n);
+  }
+
+  function situacionLabel(n) {
+    const map = {
+      1: "Normal",
+      2: "Riesgo bajo",
+      3: "Riesgo medio",
+      4: "Riesgo alto",
+      5: "Irrecuperable",
+      6: "Irrecuperable (disp. técnica)",
+    };
+    return map[n] ?? String(n ?? "—");
+  }
+
+  function badgeClassFromSituacion(n) {
+    const s = Number(n);
     if (!Number.isFinite(s)) return "warn";
     if (s <= 1) return "ok";
     if (s === 2) return "warn";
     return "bad";
   }
 
-  function getBadgeText(situacion) {
-    const s = Number(situacion);
+  function badgeTextFromSituacion(n) {
+    const s = Number(n);
     if (!Number.isFinite(s)) return "Sin dato";
     if (s <= 1) return "Apto";
     if (s === 2) return "Revisar";
-    return "Rechazado";
+    return "Riesgo";
   }
 
   function buildMarkup(instanceId) {
@@ -22,22 +49,14 @@
 
         <div class="bcra-grid">
           <label class="bcra-label">
-            CUIL
+            CUIL / CUIT / CDI
             <input
               id="${instanceId}-cuil"
               class="bcra-input"
               type="text"
               inputmode="numeric"
-              placeholder="20XXXXXXXXX"
+              placeholder="11 dígitos"
             >
-          </label>
-
-          <label class="bcra-label">
-            Tipo de documento
-            <select id="${instanceId}-doc" class="bcra-select">
-              <option value="cuil" selected>CUIL</option>
-              <option value="dni">DNI</option>
-            </select>
           </label>
         </div>
 
@@ -60,52 +79,63 @@
     `;
   }
 
-  async function defaultFetcher({ cuil, docType }) {
-    const url = `https://api.bcra.gob.ar/centraldedeudores/v1.0`;
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { "Accept": "application/json" }
-    });
+  function summarizeBcra(apiJson) {
+    const r = apiJson?.results;
+    const periodo = r?.periodos?.[0];
+    const entidades = periodo?.entidades || [];
 
-    if (!res.ok) {
-      throw new Error(`Error HTTP ${res.status}`);
+    const montoTotal = entidades.reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
+    const peorSituacion = entidades.reduce((m, e) => Math.max(m, Number(e.situacion) || 0), 0);
+
+    return {
+      denominacion: r?.denominacion ?? "",
+      identificacion: r?.identificacion ?? "",
+      periodo: periodo?.periodo ?? "",
+      entidadesCount: entidades.length,
+      montoTotal,
+      peorSituacion,
+      entidades,
+    };
+  }
+
+  async function consultarBcraDeudas(identificacion11) {
+    const url = `${BCRA_BASE}/Deudas/${identificacion11}`;
+
+    const cacheKey = `bcra_deudas_${identificacion11}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        sessionStorage.removeItem(cacheKey);
+      }
     }
 
-    return res.json();
+    const resp = await fetch(url, { method: "GET" });
+
+    if (!resp.ok) {
+      throw new Error(`BCRA respondió ${resp.status}`);
+    }
+
+    const json = await resp.json();
+    sessionStorage.setItem(cacheKey, JSON.stringify(json));
+    return json;
   }
 
-  function normalizeResult(data) {
-    const situacion =
-      data?.situacion ??
-      data?.resultado?.situacion ??
-      data?.result?.situacion ??
-      data?.status?.situacion ??
-      null;
-
-    const periodo =
-      data?.periodo ??
-      data?.resultado?.periodo ??
-      data?.result?.periodo ??
-      "—";
-
-    const entidad =
-      data?.entidad ??
-      data?.resultado?.entidad ??
-      data?.result?.entidad ??
-      "—";
-
-    const mensaje =
-      data?.mensaje ??
-      data?.resultado?.mensaje ??
-      data?.result?.mensaje ??
-      "";
-
-    return { situacion, periodo, entidad, mensaje, raw: data };
+  function buildCopyText(value, summary, badgeText) {
+    return [
+      "BCRA",
+      `Documento: ${value}`,
+      `Estado: ${badgeText}${summary.peorSituacion ? ` (Situación ${summary.peorSituacion})` : ""}`,
+      `Denominación: ${summary.denominacion || "—"}`,
+      `Período: ${summary.periodo || "—"}`,
+      `Entidades informantes: ${summary.entidadesCount}`,
+      `Monto total informado: ${fmtARS(summary.montoTotal)}`,
+    ].join("\n");
   }
 
-  function attachBehavior(instanceId, options = {}) {
+  function attachBehavior(instanceId) {
     const input = document.getElementById(`${instanceId}-cuil`);
-    const docType = document.getElementById(`${instanceId}-doc`);
     const btn = document.getElementById(`${instanceId}-btn`);
     const copyBtn = document.getElementById(`${instanceId}-copy`);
     const status = document.getElementById(`${instanceId}-status`);
@@ -113,15 +143,19 @@
     const badge = document.getElementById(`${instanceId}-badge`);
     const meta = document.getElementById(`${instanceId}-meta`);
 
-    const fetcher = options.fetcher || defaultFetcher;
-
     let lastText = "";
 
     btn.addEventListener("click", async () => {
-      const value = (input.value || "").trim();
+      const value = cleanDigits(input.value);
 
       if (!value) {
-        status.textContent = "Ingresá un CUIL o DNI para consultar.";
+        status.textContent = "Ingresá un CUIT/CUIL/CDI para consultar.";
+        result.style.display = "none";
+        return;
+      }
+
+      if (value.length !== 11) {
+        status.textContent = "Ingresá un CUIT/CUIL/CDI válido de 11 dígitos.";
         result.style.display = "none";
         return;
       }
@@ -130,37 +164,36 @@
       result.style.display = "none";
 
       try {
-        const data = await fetcher({
-          cuil: value,
-          docType: docType.value
-        });
+        const json = await consultarBcraDeudas(value);
+        const summary = summarizeBcra(json);
 
-        const normalized = normalizeResult(data);
-        const situacion = normalized.situacion;
-        const badgeClass = getBadgeClass(situacion);
-        const badgeText = getBadgeText(situacion);
+        const situacion = summary.peorSituacion;
+        const badgeClass = badgeClassFromSituacion(situacion);
+        const badgeText = badgeTextFromSituacion(situacion);
 
         badge.className = `bcra-badge ${badgeClass}`;
-        badge.textContent = `${badgeText}${situacion != null ? ` · Situación ${situacion}` : ""}`;
+        badge.textContent = `${badgeText}${situacion ? ` · Situación ${situacion} (${situacionLabel(situacion)})` : ""}`;
 
         meta.innerHTML = `
-          <div><strong>Período:</strong> ${normalized.periodo}</div>
-          <div><strong>Entidad:</strong> ${normalized.entidad}</div>
-          ${normalized.mensaje ? `<div><strong>Detalle:</strong> ${normalized.mensaje}</div>` : ""}
+          <div><strong>Denominación:</strong> ${summary.denominacion || "—"}</div>
+          <div><strong>Período:</strong> ${summary.periodo || "—"}</div>
+          <div><strong>Entidades informantes:</strong> ${summary.entidadesCount}</div>
+          <div><strong>Monto total informado:</strong> ${fmtARS(summary.montoTotal)}</div>
         `;
 
-        lastText =
-`BCRA
-Documento: ${value}
-Estado: ${badgeText}${situacion != null ? ` (Situación ${situacion})` : ""}
-Período: ${normalized.periodo}
-Entidad: ${normalized.entidad}
-${normalized.mensaje ? `Detalle: ${normalized.mensaje}` : ""}`.trim();
+        lastText = buildCopyText(value, summary, badgeText);
 
-        status.textContent = "";
+        status.textContent = "OK";
         result.style.display = "block";
       } catch (error) {
-        status.textContent = "No se pudo consultar BCRA.";
+        const msg = String(error?.message || error);
+
+        if (msg.toLowerCase().includes("failed to fetch")) {
+          status.textContent = "No se pudo consultar desde el navegador (probable CORS).";
+        } else {
+          status.textContent = `Error: ${msg}`;
+        }
+
         result.style.display = "none";
         console.error(error);
       }
@@ -188,7 +221,7 @@ ${normalized.mensaje ? `Detalle: ${normalized.mensaje}` : ""}`.trim();
 
     const instanceId = options.instanceId || `bcra-${containerId}`;
     container.innerHTML = buildMarkup(instanceId);
-    attachBehavior(instanceId, options);
+    attachBehavior(instanceId);
   }
 
   window.renderBcraBlock = renderBcraBlock;
