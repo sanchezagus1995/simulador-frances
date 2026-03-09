@@ -1,12 +1,5 @@
-// =====================
-// Config
-// =====================
 const IVA = 0.21;
-const BCRA_BASE = "https://api.bcra.gob.ar/centraldedeudores/v1.0";
 
-// =====================
-// Helpers (format + utils)
-// =====================
 function fmtARS(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
@@ -15,23 +8,7 @@ function fmtARS(n) {
     maximumFractionDigits: 2,
   }).format(n);
 }
-async function logSimulacion(data) {
 
-  try {
-
-    await fetch("https://y-loki-api.sanchezagus-1995.workers.dev/log", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(data)
-    })
-
-  } catch (err) {
-    console.error("Error enviando log:", err)
-  }
-
-}
 function fmtPct(n) {
   if (!Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("es-AR", {
@@ -40,23 +17,18 @@ function fmtPct(n) {
   }).format(n);
 }
 
-function fmtDateAR(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = String(iso).split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
-}
-
-function situacionLabel(n) {
-  const map = {
-    1: "Normal",
-    2: "Riesgo bajo",
-    3: "Riesgo medio",
-    4: "Riesgo alto",
-    5: "Irrecuperable",
-    6: "Irrecuperable (disp. técnica)",
-  };
-  return map[n] ?? String(n ?? "—");
+async function logSimulacion(data) {
+  try {
+    await fetch("https://y-loki-api.sanchezagus-1995.workers.dev/log", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.error("Error enviando log:", err);
+  }
 }
 
 function pow(a, b) {
@@ -72,74 +44,6 @@ function getEl(id) {
   return document.getElementById(id);
 }
 
-function cleanDigits(s) {
-  return String(s || "").replace(/\D/g, "");
-}
-
-function assertIdsExist(ids) {
-  const missing = ids.filter((id) => !document.getElementById(id));
-  if (missing.length) console.warn("Faltan elementos en el HTML:", missing);
-}
-
-// =====================
-// Render BCRA table
-// =====================
-function renderBcraTable(entidades = []) {
-  if (!entidades.length) {
-    return `<div class="muted">Sin entidades informadas en el período.</div>`;
-  }
-
-  const rows = entidades
-    .map((e) => {
-      const entidad = e.entidad ?? "—";
-      const sitNum = Number(e.situacion);
-      const fecha = fmtDateAR(e.fechaSit1);
-      const monto = fmtARS(Number(e.monto) || 0);
-      const atraso = e.diasAtrasoPago ?? 0;
-
-      const flags = [];
-      if (e.refinanciaciones) flags.push("Refinanciación");
-      if (e.recategorizacionOblig) flags.push("Recateg. oblig.");
-      if (e.irrecDisposicionTecnica) flags.push("Irrec. disp. técnica");
-      if (e.procesoJud) flags.push("Proceso judicial");
-      if (e.enRevision) flags.push("En revisión");
-      const flagsTxt = flags.length ? flags.join(", ") : "—";
-
-      return `
-        <tr>
-          <td>${entidad}</td>
-          <td>${situacionLabel(sitNum)}</td>
-          <td>${fecha}</td>
-          <td style="text-align:right;">${monto}</td>
-          <td style="text-align:right;">${atraso}</td>
-          <td>${flagsTxt}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  return `
-    <table class="bcra-table">
-      <thead>
-        <tr>
-          <th>Entidad</th>
-          <th>Situación</th>
-          <th>Fecha</th>
-          <th style="text-align:right;">Monto</th>
-          <th style="text-align:right;">Días atraso</th>
-          <th>Alertas</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  `;
-}
-
-// =====================
-// Notion formulas (1:1)
-// =====================
 function tasaMensualFromTNA(tnaPct) {
   return (tnaPct / 100) / 12;
 }
@@ -182,9 +86,6 @@ function cftea(i) {
   return pow(1 + i * (1 + IVA), 12) - 1;
 }
 
-// =====================
-// Cálculo principal
-// =====================
 function readInputs() {
   const M = Number(getEl("monto")?.value || 0);
   const n = Number(getEl("plazo")?.value || 0);
@@ -208,18 +109,22 @@ function clearCalcUI() {
   ].forEach((id) => setText(id, "—"));
 }
 
+function setStatus(msg) {
+  setText("status", msg || "");
+}
+
 function calcular() {
   const { M, n, tna } = readInputs();
 
   if (!(M > 0) || !(n > 0) || tna < 0) {
     clearCalcUI();
+    setStatus("Ingresá un monto, plazo y TNA válidos.");
     return null;
   }
 
   const i = tasaMensualFromTNA(tna);
 
   const cuotaSinIva = cuotaFijaSinIVA(M, n, i);
-
   const interes1 = interesPrimerMes(M, i);
   const iva1 = ivaPrimerMes(interes1);
   const cuota1 = cuotaSinIva + iva1;
@@ -232,25 +137,27 @@ function calcular() {
   setText("tasaMensual", fmtPct(i));
   setText("tea", fmtPct(tea(i)));
   setText("cftea", fmtPct(cftea(i)));
-
   setText("cuotaSinIva", fmtARS(cuotaSinIva));
-
   setText("interes1", fmtARS(interes1));
   setText("iva1", fmtARS(iva1));
   setText("cuota1", fmtARS(cuota1));
-
   setText("saldoPrevio", fmtARS(saldoPrev));
   setText("interesUlt", fmtARS(interesUlt));
   setText("ivaUlt", fmtARS(ivaUlt));
   setText("cuotaUlt", fmtARS(cuotaUlt));
-logSimulacion({
-  monto: M,
-  plazo: n,
-  tna: tna,
-  cuota1: cuota1,
-  cuotaUlt: cuotaUlt,
-  timestamp: new Date().toISOString()
-});
+
+  setStatus("Simulación calculada.");
+
+  logSimulacion({
+    simulador: "frances",
+    monto: M,
+    plazo: n,
+    tna,
+    cuota1,
+    cuotaUlt,
+    timestamp: new Date().toISOString()
+  });
+
   return {
     M,
     n,
@@ -267,150 +174,56 @@ logSimulacion({
   };
 }
 
-// =====================
-// BCRA - Central de Deudores
-// =====================
-let bcraAbort = null;
+async function copiarResultado() {
+  const monto = getEl("monto")?.value || "—";
+  const plazo = getEl("plazo")?.value || "—";
+  const tna = getEl("tna")?.value || "—";
 
-function bcraSetStatus(msg) {
-  setText("bcraStatus", msg);
-}
+  const tasaMensual = getEl("tasaMensual")?.textContent || "—";
+  const teaTxt = getEl("tea")?.textContent || "—";
+  const cfteaTxt = getEl("cftea")?.textContent || "—";
+  const cuotaSinIva = getEl("cuotaSinIva")?.textContent || "—";
+  const interes1 = getEl("interes1")?.textContent || "—";
+  const iva1 = getEl("iva1")?.textContent || "—";
+  const cuota1 = getEl("cuota1")?.textContent || "—";
+  const saldoPrevio = getEl("saldoPrevio")?.textContent || "—";
+  const interesUlt = getEl("interesUlt")?.textContent || "—";
+  const ivaUlt = getEl("ivaUlt")?.textContent || "—";
+  const cuotaUlt = getEl("cuotaUlt")?.textContent || "—";
 
-function bcraClearUI() {
-  bcraSetStatus("");
-  setText("bcraSummary", "—");
-  setText("bcraDetails", "");
-  const wrap = document.getElementById("bcraTableWrap");
-  if (wrap) wrap.innerHTML = "";
-}
-
-function bcraPrettyJson(obj) {
-  try {
-    return JSON.stringify(obj, null, 2);
-  } catch {
-    return "";
-  }
-}
-
-function bcraSummarize(apiJson) {
-  const r = apiJson?.results;
-  const periodo = r?.periodos?.[0];
-  const entidades = periodo?.entidades || [];
-
-  const montoTotal = entidades.reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
-  const peorSituacion = entidades.reduce((m, e) => Math.max(m, Number(e.situacion) || 0), 0);
-
-  return {
-    denominacion: r?.denominacion ?? "",
-    identificacion: r?.identificacion ?? "",
-    periodo: periodo?.periodo ?? "",
-    entidadesCount: entidades.length,
-    montoTotal,
-    peorSituacion,
-  };
-}
-
-async function consultarBcraDeudas(identificacion11) {
-  const url = `${BCRA_BASE}/Deudas/${identificacion11}`;
-
-  // cache de sesión (opcional)
-  const cacheKey = `bcra_deudas_${identificacion11}`;
-  const cached = sessionStorage.getItem(cacheKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch {
-      sessionStorage.removeItem(cacheKey);
-    }
-  }
-
-  // abort anterior
-  if (bcraAbort) bcraAbort.abort();
-  bcraAbort = new AbortController();
-
-  const resp = await fetch(url, { method: "GET", signal: bcraAbort.signal });
-
-  if (!resp.ok) throw new Error(`BCRA respondió ${resp.status}`);
-
-  const json = await resp.json();
-  sessionStorage.setItem(cacheKey, JSON.stringify(json));
-  return json;
-}
-
-async function onClickConsultarBcra() {
-  const cuitRaw = getEl("cuit")?.value ?? "";
-  const consent = Boolean(getEl("bcraConsent")?.checked);
-  const id = cleanDigits(cuitRaw);
-
-  bcraClearUI();
-
-  if (!consent) {
-    bcraSetStatus("Marcá el consentimiento para consultar (dato sensible).");
-    return;
-  }
-
-  if (id.length !== 11) {
-    bcraSetStatus("Ingresá un CUIT/CUIL/CDI válido de 11 dígitos.");
-    return;
-  }
-
-  bcraSetStatus("Consultando BCRA…");
+  const texto = [
+    "Simulación Sistema Francés",
+    "",
+    `Monto: ${monto}`,
+    `Plazo: ${plazo} meses`,
+    `TNA: ${tna} %`,
+    "",
+    `Tasa mensual: ${tasaMensual}`,
+    `TEA: ${teaTxt}`,
+    `CFTEA: ${cfteaTxt}`,
+    `Cuota sin IVA: ${cuotaSinIva}`,
+    `Interés 1° cuota: ${interes1}`,
+    `IVA 1° cuota: ${iva1}`,
+    `Cuota 1: ${cuota1}`,
+    `Saldo previo última: ${saldoPrevio}`,
+    `Interés última: ${interesUlt}`,
+    `IVA última: ${ivaUlt}`,
+    `Cuota última: ${cuotaUlt}`,
+  ].join("\n");
 
   try {
-    const json = await consultarBcraDeudas(id);
-    const s = bcraSummarize(json);
-
-    const summaryLines = [
-      s.denominacion ? `Denominación: ${s.denominacion}` : null,
-      s.periodo ? `Período: ${s.periodo}` : null,
-      `Entidades informantes: ${s.entidadesCount}`,
-      `Monto total informado: ${fmtARS(s.montoTotal)}`,
-      `Peor situación (máx): ${Number.isFinite(s.peorSituacion) ? s.peorSituacion : "—"}`,
-    ].filter(Boolean);
-
-    setText("bcraSummary", summaryLines.join(" • "));
-    setText("bcraDetails", bcraPrettyJson(json));
-
-    const periodo = json?.results?.periodos?.[0];
-    const entidades = periodo?.entidades || [];
-    const wrap = document.getElementById("bcraTableWrap");
-    if (wrap) wrap.innerHTML = renderBcraTable(entidades);
-
-    bcraSetStatus("OK");
+    await navigator.clipboard.writeText(texto);
+    setStatus("Resultado copiado.");
   } catch (err) {
-    const msg = String(err?.message || err);
-
-    if (msg.toLowerCase().includes("failed to fetch")) {
-      bcraSetStatus("No se pudo consultar desde el navegador (probable CORS).");
-    } else if (msg.toLowerCase().includes("abort")) {
-      bcraSetStatus("Consulta cancelada.");
-    } else {
-      bcraSetStatus(`Error: ${msg}`);
-    }
+    console.error(err);
+    setStatus("No se pudo copiar el resultado.");
   }
 }
 
-// =====================
-// Wire-up
-// =====================
 function init() {
-
-  assertIdsExist([
-    "monto", "plazo", "tna", "btn",
-    "tasaMensual", "tea", "cftea", "cuotaSinIva", "interes1", "iva1", "cuota1",
-    "saldoPrevio", "interesUlt", "ivaUlt", "cuotaUlt",
-    "cuit", "bcraConsent", "btnBcra", "bcraStatus", "bcraSummary", "bcraDetails", "bcraTableWrap",
-  ]);
-
-  // botón calcular
-  getEl("btn")?.addEventListener("click", () => calcular());
-
-  // botón BCRA
-  getEl("btnBcra")?.addEventListener("click", onClickConsultarBcra);
-
-  // inicialización
-  bcraClearUI();
-
+  getEl("btn")?.addEventListener("click", calcular);
+  getEl("btnCopiar")?.addEventListener("click", copiarResultado);
+  setStatus("");
 }
 
 document.addEventListener("DOMContentLoaded", init);
