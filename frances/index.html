@@ -3,108 +3,118 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simulador - Tasa frances</title>
+  <title>Sistema Francés</title>
+
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="../shared/bcra.css" />
 </head>
 <body>
-  <main class="card">
-    <h1>Simulador - Tasa frances</h1>
+  <main class="wrap">
+    <h1>Sistema Francés</h1>
+    <p class="muted">
+      Calcula cuota fija, interés, IVA, TEA y CFTEA.
+    </p>
 
-    <section class="inputs">
-      <label>
-        Monto ($)
-        <input id="monto" type="number" value="1000000" />
-      </label>
+    <section class="card">
+      <div class="grid">
+        <label>
+          Monto (ARS)
+          <input id="monto" type="number" inputmode="numeric" min="0" step="1000" value="5000000">
+        </label>
 
-      <label>
-        Plazo (meses)
-        <input id="plazo" type="number" value="36" />
-      </label>
+        <label>
+          Plazo (meses)
+          <input id="plazo" type="number" inputmode="numeric" min="1" step="1" value="24">
+        </label>
 
-      <label>
-        TNA (% anual)
-        <input id="tna" type="number" value="54" />
-      </label>
+        <label>
+          TNA (%)
+          <input id="tna" type="number" inputmode="decimal" min="0" step="0.01" value="80">
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="btn" type="button">Calcular</button>
+        <button id="btnCopiar" class="ghost" type="button">Copiar resultado</button>
+      </div>
+
+      <div id="status" class="status muted"></div>
     </section>
 
-    <button id="btn">Calcular</button>
+    <div id="bcra-container"></div>
 
-    <!-- CUOTAS PRINCIPALES -->
-    <section class="cuotas">
-      <div class="cuota-box">
-        <h2>Primer cuota</h2>
-        <div class="cuota-grande" id="cuota1">—</div>
+    <section class="card">
+      <h2>Resultado</h2>
 
-        <details>
-          <summary>Ver detalle</summary>
-          <div class="detalle">
-            <div>Interés: <span id="interes1"></span></div>
-            <div>IVA: <span id="iva1"></span></div>
-          </div>
-        </details>
-      </div>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="kpi-label">Tasa mensual</div>
+          <div id="tasaMensual" class="kpi-value">—</div>
+        </div>
 
-      <div class="cuota-box">
-        <h2>Última cuota</h2>
-        <div class="cuota-grande" id="cuotaUlt">—</div>
+        <div class="kpi">
+          <div class="kpi-label">TEA</div>
+          <div id="tea" class="kpi-value">—</div>
+        </div>
 
-        <details>
-          <summary>Ver detalle</summary>
-          <div class="detalle">
-            <div>Saldo previo: <span id="saldoPrevio"></span></div>
-            <div>Interés: <span id="interesUlt"></span></div>
-            <div>IVA: <span id="ivaUlt"></span></div>
-          </div>
-        </details>
-      </div>
-    </section>
-  
-  <!-- BCRA -->
-<section class="box">
-  <h3>Central de Deudores (BCRA)</h3>
+        <div class="kpi">
+          <div class="kpi-label">CFTEA</div>
+          <div id="cftea" class="kpi-value">—</div>
+        </div>
 
-  <label>
-    CUIT/CUIL (11 dígitos)
-    <input id="cuit" type="text" placeholder="20300111222" />
-  </label>
+        <div class="kpi">
+          <div class="kpi-label">Cuota sin IVA</div>
+          <div id="cuotaSinIva" class="kpi-value">—</div>
+        </div>
 
-  <label style="margin-top:8px; display:block;">
-    <input id="bcraConsent" type="checkbox" />
-    Tengo autorización del titular para consultar
-  </label>
+        <div class="kpi">
+          <div class="kpi-label">Interés 1° cuota</div>
+          <div id="interes1" class="kpi-value">—</div>
+        </div>
 
-  <button id="btnBcra" style="margin-top:10px;">Consultar BCRA</button>
+        <div class="kpi">
+          <div class="kpi-label">IVA 1° cuota</div>
+          <div id="iva1" class="kpi-value">—</div>
+        </div>
 
-  <div style="margin-top:10px;">
-    <div><b>Estado:</b> <span id="bcraStatus"></span></div>
-    <div style="margin-top:6px;"><b>Resumen:</b> <span id="bcraSummary">—</span></div>
+        <div class="kpi">
+          <div class="kpi-label">Cuota 1</div>
+          <div id="cuota1" class="kpi-value">—</div>
+        </div>
 
-    <div id="bcraTableWrap" style="margin-top:12px;"></div>
+        <div class="kpi">
+          <div class="kpi-label">Saldo previo última</div>
+          <div id="saldoPrevio" class="kpi-value">—</div>
+        </div>
 
-    <details style="margin-top:10px;">
-      <summary>Ver JSON completo</summary>
-      <pre id="bcraDetails" style="white-space:pre-wrap;"></pre>
-    </details>
-  </div>
-</section>
-    
-    <!-- INFO SECUNDARIA -->
-    <section class="secundario">
-      <div class="box">
-        <h3>Tasas</h3>
-        <div>Tasa mensual: <span id="tasaMensual"></span></div>
-        <div>TEA: <span id="tea"></span></div>
-        <div>CFTEA: <span id="cftea"></span></div>
-      </div>
+        <div class="kpi">
+          <div class="kpi-label">Interés última</div>
+          <div id="interesUlt" class="kpi-value">—</div>
+        </div>
 
-      <div class="box">
-        <h3>Cuota base</h3>
-        <div>Cuota fija sin IVA: <span id="cuotaSinIva"></span></div>
+        <div class="kpi">
+          <div class="kpi-label">IVA última</div>
+          <div id="ivaUlt" class="kpi-value">—</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-label">Cuota última</div>
+          <div id="cuotaUlt" class="kpi-value">—</div>
+        </div>
       </div>
     </section>
 
+    <footer class="muted small">
+      Nota: el IVA se aplica sobre los intereses. La cuota base del sistema francés es fija.
+    </footer>
   </main>
 
+  <script src="../shared/bcra.js"></script>
   <script src="./app.js"></script>
+  <script>
+    renderBcraBlock("bcra-container", {
+      instanceId: "bcra-frances"
+    });
+  </script>
 </body>
 </html>
