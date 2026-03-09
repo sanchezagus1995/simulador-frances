@@ -96,3 +96,35 @@
   display:grid;
   gap:4px;
 }
+.bcra-table-box{
+  margin-top: 14px;
+}
+
+.bcra-table-wrap{
+  overflow:auto;
+  border:1px solid #eee;
+  border-radius:12px;
+  background:#fff;
+}
+
+.bcra-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:800px;
+}
+
+.bcra-table th,
+.bcra-table td{
+  padding:10px;
+  border-bottom:1px solid #eee;
+  font-size:13px;
+}
+
+.bcra-table th{
+  background:#fafafa;
+  text-align:left;
+}
+
+.bcra-table td{
+  vertical-align:top;
+}
