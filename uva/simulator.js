@@ -30,6 +30,38 @@ function frenchPayment(P, i, n) {
   return P * (i * pow) / (pow - 1);
 }
 
+function setText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
+
+// ===== Gastos entidad =====
+function getDefaultPctByMode(mode) {
+  if (mode === "restar") return 8.47;
+  return 9.25; // sumar
+}
+
+function calcularMontoConGastos(montoBase, modo, porcentaje) {
+  const pct = Number(porcentaje) / 100;
+  const gastoArs = montoBase * pct;
+
+  let montoFinal = montoBase;
+
+  if (modo === "sumar") {
+    montoFinal = montoBase + gastoArs;
+  } else if (modo === "restar") {
+    montoFinal = montoBase - gastoArs;
+  }
+
+  return {
+    montoBase,
+    modo,
+    porcentaje: Number(porcentaje),
+    gastoArs,
+    montoFinal,
+  };
+}
+
 // ===== BCRA UVA =====
 async function fetchUVA() {
   const listUrl =
@@ -64,19 +96,16 @@ async function fetchUVA() {
     throw new Error("No se encontró la serie de UVA.");
   }
 
-  // Fecha local de Argentina, no UTC
   const hoy = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(new Date());
 
-  // Tomar solo fechas <= hoy
   const seriePasadaOVigente = serie.filter((d) => d.fecha <= hoy);
 
   if (!seriePasadaOVigente.length) {
     throw new Error("No encontré un valor de UVA vigente para hoy o una fecha anterior.");
   }
 
-  // Nos quedamos con la más reciente <= hoy
   const datoVigente = seriePasadaOVigente.reduce((a, b) =>
     a.fecha > b.fecha ? a : b
   );
@@ -137,6 +166,7 @@ function buildSchedule({ montoArs, plazo, tnaPct, inflacionPct, uvaHoy }) {
 // ===== Render =====
 function renderTable(rows) {
   const tbody = $("tabla");
+  if (!tbody) return;
 
   tbody.innerHTML = rows
     .map(
@@ -155,8 +185,26 @@ function renderTable(rows) {
     .join("");
 }
 
+function renderMontoResumen({ montoBase, modo, porcentaje, gastoArs, montoFinal }) {
+  setText("montoIngresado", fmtARS(montoBase));
+  setText("porcentajeGastosAplicado", `${fmtNum(porcentaje, 2)}%`);
+  setText("gastosEntidadArs", fmtARS(gastoArs));
+
+  if (modo === "sumar") {
+    setText("labelMontoFinal", "Monto total financiado");
+  } else {
+    setText("labelMontoFinal", "Neto a recibir");
+  }
+
+  setText("montoFinalCalculado", fmtARS(montoFinal));
+}
+
 function buildSummary({
-  montoArs,
+  montoBase,
+  modoGastos,
+  porcentajeGastos,
+  gastoArs,
+  montoFinal,
   plazo,
   tnaPct,
   inflacionPct,
@@ -165,10 +213,23 @@ function buildSummary({
   cuotaPuraUvaFija,
   totalCuotaArs1,
 }) {
+  const modoTxt =
+    modoGastos === "sumar"
+      ? "Sumar gastos al monto"
+      : "Monto ingresado representa máximo final";
+
   return [
     "Simulador UVA",
     `UVA (${uva.fecha}): $${fmtNum(uva.valor, 2)}`,
-    `Monto: ${fmtARS(montoArs)}`,
+    `Monto ingresado: ${fmtARS(montoBase)}`,
+    `Modo gastos: ${modoTxt}`,
+    `Porcentaje gastos: ${fmtNum(porcentajeGastos, 2)}%`,
+    `Gastos entidad: ${fmtARS(gastoArs)}`,
+    `${
+      modoGastos === "sumar"
+        ? `Monto total financiado: ${fmtARS(montoFinal)}`
+        : `Neto a recibir: ${fmtARS(montoFinal)}`
+    }`,
     `Plazo: ${plazo} meses`,
     `TNA: ${fmtNum(tnaPct, 2)}%`,
     `Inflación supuesta: ${fmtNum(inflacionPct, 2)}% mensual`,
@@ -183,45 +244,63 @@ async function calcular() {
   try {
     setStatus("Buscando UVA en BCRA...");
 
-    const montoArs = Number($("montoArs").value || 0);
-    const plazo = Number($("plazo").value || 0);
-    const tnaPct = Number($("tna").value || 0);
-    const inflacionPct = Number($("inflacion").value || 0);
+    const montoBase = Number($("montoArs")?.value || 0);
+    const plazo = Number($("plazo")?.value || 0);
+    const tnaPct = Number($("tna")?.value || 0);
+    const inflacionPct = Number($("inflacion")?.value || 0);
+    const modoGastos = $("modoGastos")?.value || "sumar";
+    const porcentajeGastos = Number($("porcentajeGastos")?.value || 0);
 
-    if (montoArs <= 0 || plazo <= 0) {
+    if (montoBase <= 0 || plazo <= 0) {
       throw new Error("Completá monto y plazo con valores válidos.");
+    }
+
+    if (porcentajeGastos < 0) {
+      throw new Error("El porcentaje de gastos no puede ser negativo.");
+    }
+
+    const gastos = calcularMontoConGastos(montoBase, modoGastos, porcentajeGastos);
+
+    if (gastos.montoFinal <= 0) {
+      throw new Error("El monto final calculado debe ser mayor a cero.");
     }
 
     const uva = await fetchUVA();
 
-    $("uvaActual").textContent = `$${fmtNum(uva.valor, 2)}`;
-    $("uvaFecha").textContent = `Fecha: ${uva.fecha}`;
+    setText("uvaActual", `$${fmtNum(uva.valor, 2)}`);
+    setText("uvaFecha", `Fecha: ${uva.fecha}`);
+
+    renderMontoResumen(gastos);
 
     const { capitalInicialUva, cuotaPuraUvaFija, rows } = buildSchedule({
-      montoArs,
+      montoArs: gastos.montoFinal,
       plazo,
       tnaPct,
       inflacionPct,
       uvaHoy: uva.valor,
     });
 
-    $("capitalUva").textContent = fmtNum(capitalInicialUva, 4);
-    $("cuotaUva").textContent = fmtNum(cuotaPuraUvaFija, 4);
+    setText("capitalUva", fmtNum(capitalInicialUva, 4));
+    setText("cuotaUva", fmtNum(cuotaPuraUvaFija, 4));
 
     const primera = rows[0];
-    $("cuotaArs1").textContent = fmtARS(primera.totalCuotaArs);
+    setText("cuotaArs1", primera ? fmtARS(primera.totalCuotaArs) : "—");
 
     renderTable(rows);
 
     window.__summary = buildSummary({
-      montoArs,
+      montoBase: gastos.montoBase,
+      modoGastos: gastos.modo,
+      porcentajeGastos: gastos.porcentaje,
+      gastoArs: gastos.gastoArs,
+      montoFinal: gastos.montoFinal,
       plazo,
       tnaPct,
       inflacionPct,
       uva,
       capitalInicialUva,
       cuotaPuraUvaFija,
-      totalCuotaArs1: primera.totalCuotaArs,
+      totalCuotaArs1: primera?.totalCuotaArs || 0,
     });
 
     setStatus(`Listo. UVA tomada de BCRA (${uva.fecha}).`);
@@ -232,9 +311,9 @@ async function calcular() {
 }
 
 // ===== Eventos =====
-$("btnCalcular").addEventListener("click", calcular);
+$("btnCalcular")?.addEventListener("click", calcular);
 
-$("btnCopiar").addEventListener("click", async () => {
+$("btnCopiar")?.addEventListener("click", async () => {
   const text = window.__summary || "Primero calculá para generar el resumen.";
 
   try {
@@ -243,6 +322,14 @@ $("btnCopiar").addEventListener("click", async () => {
   } catch (error) {
     console.error(error);
     setStatus("No pude copiar el resumen.");
+  }
+});
+
+$("modoGastos")?.addEventListener("change", (e) => {
+  const mode = e.target.value;
+  const inputPct = $("porcentajeGastos");
+  if (inputPct) {
+    inputPct.value = getDefaultPctByMode(mode);
   }
 });
 
