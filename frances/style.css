@@ -203,3 +203,6 @@ button.ghost {
     width: 100%;
   }
 }
+.row:first-child {
+  margin-bottom: 8px;
+}
