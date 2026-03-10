@@ -93,24 +93,54 @@ function readInputs() {
   return { M, n, tna };
 }
 
+function clearTablaCuotas() {
+  const tbody = getEl("tabla-cuotas-body");
+  if (tbody) tbody.innerHTML = "";
+}
+
 function clearCalcUI() {
   [
-    "tasaMensual",
-    "tea",
-    "cftea",
-    "cuotaSinIva",
-    "interes1",
-    "iva1",
-    "cuota1",
-    "saldoPrevio",
-    "interesUlt",
-    "ivaUlt",
-    "cuotaUlt",
+    "res-tna",
+    "res-cuota1",
+    "res-cuota-final",
+    "res-cftea",
   ].forEach((id) => setText(id, "—"));
+
+  clearTablaCuotas();
 }
 
 function setStatus(msg) {
   setText("status", msg || "");
+}
+
+function generarTablaCuotas(M, n, i, cuotaSinIva) {
+  const tbody = getEl("tabla-cuotas-body");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  let saldo = M;
+
+  for (let mes = 1; mes <= n; mes++) {
+    const interes = saldo * i;
+    const iva = interes * IVA;
+    const capital = cuotaSinIva - interes;
+    const cuota = cuotaSinIva + iva;
+    const nuevoSaldo = Math.max(0, saldo - capital);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${mes}</td>
+      <td>${fmtARS(interes)}</td>
+      <td>${fmtARS(iva)}</td>
+      <td>${fmtARS(capital)}</td>
+      <td>${fmtARS(nuevoSaldo)}</td>
+      <td>${fmtARS(cuota)}</td>
+    `;
+
+    tbody.appendChild(tr);
+    saldo = nuevoSaldo;
+  }
 }
 
 function calcular() {
@@ -134,17 +164,12 @@ function calcular() {
   const ivaUlt = ivaUltima(interesUlt);
   const cuotaUlt = saldoPrev + interesUlt + ivaUlt;
 
-  setText("tasaMensual", fmtPct(i));
-  setText("tea", fmtPct(tea(i)));
-  setText("cftea", fmtPct(cftea(i)));
-  setText("cuotaSinIva", fmtARS(cuotaSinIva));
-  setText("interes1", fmtARS(interes1));
-  setText("iva1", fmtARS(iva1));
-  setText("cuota1", fmtARS(cuota1));
-  setText("saldoPrevio", fmtARS(saldoPrev));
-  setText("interesUlt", fmtARS(interesUlt));
-  setText("ivaUlt", fmtARS(ivaUlt));
-  setText("cuotaUlt", fmtARS(cuotaUlt));
+  setText("res-tna", `${tna}%`);
+  setText("res-cuota1", fmtARS(cuota1));
+  setText("res-cuota-final", fmtARS(cuotaUlt));
+  setText("res-cftea", fmtPct(cftea(i)));
+
+  generarTablaCuotas(M, n, i, cuotaSinIva);
 
   setStatus("Simulación calculada.");
 
@@ -179,36 +204,22 @@ async function copiarResultado() {
   const plazo = getEl("plazo")?.value || "—";
   const tna = getEl("tna")?.value || "—";
 
-  const tasaMensual = getEl("tasaMensual")?.textContent || "—";
-  const teaTxt = getEl("tea")?.textContent || "—";
-  const cfteaTxt = getEl("cftea")?.textContent || "—";
-  const cuotaSinIva = getEl("cuotaSinIva")?.textContent || "—";
-  const interes1 = getEl("interes1")?.textContent || "—";
-  const iva1 = getEl("iva1")?.textContent || "—";
-  const cuota1 = getEl("cuota1")?.textContent || "—";
-  const saldoPrevio = getEl("saldoPrevio")?.textContent || "—";
-  const interesUlt = getEl("interesUlt")?.textContent || "—";
-  const ivaUlt = getEl("ivaUlt")?.textContent || "—";
-  const cuotaUlt = getEl("cuotaUlt")?.textContent || "—";
+  const tnaTxt = getEl("res-tna")?.textContent || "—";
+  const cuota1 = getEl("res-cuota1")?.textContent || "—";
+  const cuotaFinal = getEl("res-cuota-final")?.textContent || "—";
+  const cfteaTxt = getEl("res-cftea")?.textContent || "—";
 
   const texto = [
     "Simulación Sistema Francés",
     "",
     `Monto: ${monto}`,
     `Plazo: ${plazo} meses`,
-    `TNA: ${tna} %`,
+    `TNA ingresada: ${tna} %`,
     "",
-    `Tasa mensual: ${tasaMensual}`,
-    `TEA: ${teaTxt}`,
-    `CFTEA: ${cfteaTxt}`,
-    `Cuota sin IVA: ${cuotaSinIva}`,
-    `Interés 1° cuota: ${interes1}`,
-    `IVA 1° cuota: ${iva1}`,
+    `TNA: ${tnaTxt}`,
     `Cuota 1: ${cuota1}`,
-    `Saldo previo última: ${saldoPrevio}`,
-    `Interés última: ${interesUlt}`,
-    `IVA última: ${ivaUlt}`,
-    `Cuota última: ${cuotaUlt}`,
+    `Cuota final: ${cuotaFinal}`,
+    `CFTEA: ${cfteaTxt}`,
   ].join("\n");
 
   try {
