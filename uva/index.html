@@ -35,6 +35,19 @@
           Inflación mensual esperada (%)
           <input id="inflacion" type="number" inputmode="decimal" min="0" step="0.01" value="0">
         </label>
+
+        <label>
+          Tratamiento de gastos
+          <select id="modoGastos">
+            <option value="sumar" selected>Sumar gastos al monto</option>
+            <option value="restar">El monto representa el máximo final</option>
+          </select>
+        </label>
+
+        <label>
+          % gastos entidad
+          <input id="porcentajeGastos" type="number" inputmode="decimal" min="0" step="0.01" value="9.25">
+        </label>
       </div>
 
       <div class="row">
@@ -44,7 +57,9 @@
 
       <div id="status" class="status muted"></div>
     </section>
+
     <div id="bcra-container"></div>
+
     <section class="card">
       <h2>Resultado</h2>
 
@@ -74,38 +89,64 @@
         </div>
       </div>
 
+      <h3>Resumen de monto</h3>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="kpi-label">Monto ingresado</div>
+          <div id="montoIngresado" class="kpi-value">—</div>
+          <div class="muted small">valor escrito en el campo</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-label">% gastos aplicado</div>
+          <div id="porcentajeGastosAplicado" class="kpi-value">—</div>
+          <div class="muted small">editable</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-label">Gastos entidad</div>
+          <div id="gastosEntidadArs" class="kpi-value">—</div>
+          <div class="muted small">importe calculado</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-label" id="labelMontoFinal">Monto final</div>
+          <div id="montoFinalCalculado" class="kpi-value">—</div>
+          <div class="muted small">monto usado para calcular cuotas</div>
+        </div>
+      </div>
+
       <h3>Tabla (primeros 12 meses)</h3>
       <div class="table-wrap">
         <table>
-         <thead>
-<tr>
-<th>Cant Cuotas</th>
-<th>Capital</th>
-<th>Interés</th>
-<th>IVA</th>
-<th>Cuota Pura</th>
-<th>Total Cuota UVA</th>
-<th>Total Cuota</th>
-</tr>
-</thead>
+          <thead>
+            <tr>
+              <th>Cant Cuotas</th>
+              <th>Capital</th>
+              <th>Interés</th>
+              <th>IVA</th>
+              <th>Cuota Pura</th>
+              <th>Total Cuota UVA</th>
+              <th>Total Cuota</th>
+            </tr>
+          </thead>
           <tbody id="tabla"></tbody>
         </table>
       </div>
     </section>
 
     <footer class="muted small">
-      Nota: la proyección en pesos depende de la inflación mensual supuesta. La cuota en UVA es fija; en pesos varía con la UVA. 
+      Nota: la proyección en pesos depende de la inflación mensual supuesta. La cuota en UVA es fija; en pesos varía con la UVA.
     </footer>
   </main>
 
-<script src="../shared/bcra.js"></script>
-<script src="./simulator.js"></script>
+  <script src="../shared/bcra.js"></script>
+  <script src="./simulator.js"></script>
 
-<script>
-renderBcraBlock("bcra-container", {
-  instanceId: "bcra-uva"
-});
-</script>
-
+  <script>
+    renderBcraBlock("bcra-container", {
+      instanceId: "bcra-uva"
+    });
+  </script>
 </body>
 </html>
