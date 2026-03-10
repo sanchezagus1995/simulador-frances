@@ -43,67 +43,61 @@
 
     <div id="bcra-container"></div>
 
-    <section class="card">
-      <h2>Resultado</h2>
+<div class="card">
+  <h2>Resultado</h2>
 
-      <div class="kpis">
-        <div class="kpi">
-          <div class="kpi-label">Tasa mensual</div>
-          <div id="tasaMensual" class="kpi-value">—</div>
-        </div>
+  <!-- métricas principales -->
+  <div class="resultado-grid">
 
-        <div class="kpi">
-          <div class="kpi-label">TEA</div>
-          <div id="tea" class="kpi-value">—</div>
-        </div>
+    <div class="metric-card">
+      <div class="metric-label">TNA</div>
+      <div class="metric-value" id="res-tna">-</div>
+    </div>
 
-        <div class="kpi">
-          <div class="kpi-label">CFTEA</div>
-          <div id="cftea" class="kpi-value">—</div>
-        </div>
+    <div class="metric-card">
+      <div class="metric-label">Cuota 1</div>
+      <div class="metric-value" id="res-cuota1">-</div>
+    </div>
 
-        <div class="kpi">
-          <div class="kpi-label">Cuota sin IVA</div>
-          <div id="cuotaSinIva" class="kpi-value">—</div>
-        </div>
+    <div class="metric-card">
+      <div class="metric-label">Cuota final</div>
+      <div class="metric-value" id="res-cuota-final">-</div>
+    </div>
 
-        <div class="kpi">
-          <div class="kpi-label">Interés 1° cuota</div>
-          <div id="interes1" class="kpi-value">—</div>
-        </div>
+    <div class="metric-card">
+      <div class="metric-label">CFTEA</div>
+      <div class="metric-value" id="res-cftea">-</div>
+    </div>
 
-        <div class="kpi">
-          <div class="kpi-label">IVA 1° cuota</div>
-          <div id="iva1" class="kpi-value">—</div>
-        </div>
+  </div>
 
-        <div class="kpi">
-          <div class="kpi-label">Cuota 1</div>
-          <div id="cuota1" class="kpi-value">—</div>
-        </div>
+  <!-- tabla de cuotas -->
+  <div class="tabla-cuotas-wrap">
 
-        <div class="kpi">
-          <div class="kpi-label">Saldo previo última</div>
-          <div id="saldoPrevio" class="kpi-value">—</div>
-        </div>
+    <h3>Tabla de cuotas</h3>
 
-        <div class="kpi">
-          <div class="kpi-label">Interés última</div>
-          <div id="interesUlt" class="kpi-value">—</div>
-        </div>
+    <table class="tabla-cuotas">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Interés</th>
+          <th>IVA</th>
+          <th>Capital</th>
+          <th>Saldo</th>
+          <th>Cuota</th>
+        </tr>
+      </thead>
 
-        <div class="kpi">
-          <div class="kpi-label">IVA última</div>
-          <div id="ivaUlt" class="kpi-value">—</div>
-        </div>
+      <tbody id="tabla-cuotas-body">
+        <!-- filas generadas por JS -->
+      </tbody>
 
-        <div class="kpi">
-          <div class="kpi-label">Cuota última</div>
-          <div id="cuotaUlt" class="kpi-value">—</div>
-        </div>
-      </div>
-    </section>
+    </table>
 
+  </div>
+
+</div>
+    
     <footer class="muted small">
       Nota: el IVA se aplica sobre los intereses. La cuota base del sistema francés es fija.
     </footer>
