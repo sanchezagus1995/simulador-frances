@@ -207,3 +207,6 @@ button.ghost {
 .tabla-cuotas td:first-child {
   text-align: center;
 }
+.tabla-scroll {
+  overflow-x: auto;
+}
